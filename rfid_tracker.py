@@ -1,10 +1,13 @@
 import serial
 import time
 from typing import Dict, Optional, Tuple
+from prettytable import PrettyTable
+import os
 
 class RFIDTag:
-    def __init__(self, epc: str):
+    def __init__(self, epc: str, tag_id: int):
         self.epc = epc
+        self.id = tag_id
         self.last_read_time = 0
         self.rssi = 0
         self.frequency = 0
@@ -15,6 +18,7 @@ class RFIDTracker:
         self.serial = serial.Serial(port, baud_rate, timeout=1)
         self.max_tags = max_tags
         self.tags: Dict[str, RFIDTag] = {}
+        self.next_id = 1
 
     def read_serial(self) -> Optional[Tuple[str, float, int, int]]:
         """Read and parse a single RFID tag data from serial."""
@@ -31,8 +35,9 @@ class RFIDTracker:
         if epc in self.tags:
             tag = self.tags[epc]
         elif len(self.tags) < self.max_tags:
-            tag = RFIDTag(epc)
+            tag = RFIDTag(epc, self.next_id)
             self.tags[epc] = tag
+            self.next_id += 1
         else:
             # If we've reached max tags, don't add a new one
             return
@@ -53,6 +58,7 @@ class RFIDTracker:
         if epc in self.tags:
             tag = self.tags[epc]
             return {
+                "id": tag.id,
                 "epc": tag.epc,
                 "last_read_time": tag.last_read_time,
                 "rssi": tag.rssi,
@@ -69,21 +75,33 @@ class RFIDTracker:
         """Close the serial connection."""
         self.serial.close()
 
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def print_table(tags: Dict[str, Dict]):
+    table = PrettyTable()
+    table.field_names = ["ID", "EPC", "Last Read Time", "RSSI", "Frequency", "Read Count"]
+    for tag in tags.values():
+        table.add_row([
+            tag['id'],
+            tag['epc'],
+            f"{time.time() - tag['last_read_time']:.2f}s ago",
+            tag['rssi'],
+            tag['frequency'],
+            tag['read_count']
+        ])
+    clear_screen()
+    print(table)
+
 # Example usage
 if __name__ == "__main__":
     tracker = RFIDTracker("/dev/tty.usbmodem21301", 115200, max_tags=10)
     try:
-        for _ in range(100):  # Read 100 times
+        while True:
             tracker.read_and_update()
+            print_table(tracker.get_all_tags())
             time.sleep(0.1)  # Short delay between reads
-        
-        # Print all tag data
-        all_tags = tracker.get_all_tags()
-        for epc, data in all_tags.items():
-            print(f"Tag EPC: {epc}")
-            print(f"  Last Read Time: {data['last_read_time']}")
-            print(f"  RSSI: {data['rssi']}")
-            print(f"  Frequency: {data['frequency']}")
-            print(f"  Read Count: {data['read_count']}")
+    except KeyboardInterrupt:
+        print("\nInterrupted by user")
     finally:
         tracker.close()
