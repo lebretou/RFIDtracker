@@ -71,7 +71,7 @@ class RFIDTracker:
 
 # Example usage
 if __name__ == "__main__":
-    tracker = RFIDTracker("/dev/tty.usbmodem21301", 115200, max_tags=3)
+    tracker = RFIDTracker("/dev/tty.usbmodem21301", 115200, max_tags=10)
     try:
         for _ in range(100):  # Read 100 times
             tracker.read_and_update()
