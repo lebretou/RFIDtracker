@@ -3,15 +3,51 @@ import time
 from typing import Dict, Optional, Tuple
 from prettytable import PrettyTable
 import os
+import numpy as np
+from scipy.stats import norm
 
 class RFIDTag:
     def __init__(self, epc: str, tag_id: int):
         self.epc = epc
         self.id = tag_id
-        self.last_read_time = 0
+        self.last_read_time = time.time()
         self.rssi = 0
         self.frequency = 0
         self.read_count = 0
+        self.total_read_time = 0
+        self.avg_read_time = 0
+        self.read_times = []
+        self.var_read_time = 0
+        self.visibility_prob = 0.5  # Initial probability of being visible
+        
+        # Bayesian filter parameters
+        self.visible_mean = 0.0956
+        self.visible_var = 0.0051
+        self.covered_mean = 0.62
+        self.covered_var = 7.38
+        self.transition_rate = 0.1  # Probability of transitioning between states
+
+    def update_visibility(self, current_time):
+        elapsed_time = current_time - self.last_read_time
+        
+        # Transition model
+        self.visibility_prob = 0.5 + (self.visibility_prob - 0.5) * (1 - self.transition_rate)
+        
+        # Observation model
+        p_visible = norm.pdf(elapsed_time, self.visible_mean, np.sqrt(self.visible_var))
+        p_covered = norm.pdf(elapsed_time, self.covered_mean, np.sqrt(self.covered_var))
+        
+        # Bayes update
+        likelihood_visible = p_visible * self.visibility_prob
+        likelihood_covered = p_covered * (1 - self.visibility_prob)
+        total_likelihood = likelihood_visible + likelihood_covered
+        
+        if total_likelihood > 0:
+            self.visibility_prob = likelihood_visible / total_likelihood
+        
+        # Decay the probability towards 0.5 for long periods without reads
+        decay_factor = np.exp(-elapsed_time / 10)  # Adjust the 10 to control decay rate
+        self.visibility_prob = 0.5 + (self.visibility_prob - 0.5) * decay_factor
 
 class RFIDTracker:
     def __init__(self, port: str, baud_rate: int, max_tags: int):
@@ -34,6 +70,13 @@ class RFIDTracker:
         """Update or add a tag to the tracker."""
         if epc in self.tags:
             tag = self.tags[epc]
+            elapsed_time = timestamp - tag.last_read_time
+            tag.total_read_time += elapsed_time
+            tag.read_count += 1
+            tag.read_times.append(elapsed_time)
+            tag.avg_read_time = tag.total_read_time / tag.read_count
+            if len(tag.read_times) > 1:
+                tag.var_read_time = np.var(tag.read_times)
         elif len(self.tags) < self.max_tags:
             tag = RFIDTag(epc, self.next_id)
             self.tags[epc] = tag
@@ -45,13 +88,19 @@ class RFIDTracker:
         tag.last_read_time = timestamp
         tag.rssi = rssi
         tag.frequency = freq
-        tag.read_count += 1
+
+    def update_all_tags(self, current_time):
+        """Update visibility probabilities for all tags."""
+        for tag in self.tags.values():
+            tag.update_visibility(current_time)
 
     def read_and_update(self) -> None:
         """Read from serial and update tag data."""
+        current_time = time.time()
         tag_data = self.read_serial()
         if tag_data:
             self.update_tag(*tag_data)
+        self.update_all_tags(current_time)
 
     def get_tag_data(self, epc: str) -> Optional[Dict]:
         """Get data for a specific tag."""
@@ -63,7 +112,10 @@ class RFIDTracker:
                 "last_read_time": tag.last_read_time,
                 "rssi": tag.rssi,
                 "frequency": tag.frequency,
-                "read_count": tag.read_count
+                "read_count": tag.read_count,
+                "avg_read_time": tag.avg_read_time,
+                "var_read_time": tag.var_read_time,
+                "visibility_prob": tag.visibility_prob
             }
         return None
 
@@ -80,7 +132,7 @@ def clear_screen():
 
 def print_table(tags: Dict[str, Dict]):
     table = PrettyTable()
-    table.field_names = ["ID", "EPC", "Last Read Time", "RSSI", "Frequency", "Read Count"]
+    table.field_names = ["ID", "EPC", "Last Read Time", "RSSI", "Frequency", "Read Count", "Avg Read Time", "Var Read Time", "Visibility Prob"]
     for tag in tags.values():
         table.add_row([
             tag['id'],
@@ -88,19 +140,22 @@ def print_table(tags: Dict[str, Dict]):
             f"{time.time() - tag['last_read_time']:.2f}s ago",
             tag['rssi'],
             tag['frequency'],
-            tag['read_count']
+            tag['read_count'],
+            f"{tag['avg_read_time']:.4f}s",
+            f"{tag['var_read_time']:.6f}s²",
+            f"{tag['visibility_prob']:.4f}"
         ])
     clear_screen()
     print(table)
 
 # Example usage
 if __name__ == "__main__":
-    tracker = RFIDTracker("/dev/tty.usbmodem21301", 115200, max_tags=10)
+    tracker = RFIDTracker("/dev/tty.usbmodem21301", 115200, max_tags=3)  # Set to 3 tags
     try:
         while True:
             tracker.read_and_update()
             print_table(tracker.get_all_tags())
-            time.sleep(0.1)  # Short delay between reads
+            # time.sleep(0.1)  # Short delay between reads
     except KeyboardInterrupt:
         print("\nInterrupted by user")
     finally:
