@@ -1,10 +1,11 @@
 import serial
 import time
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 from prettytable import PrettyTable
 import os
 import numpy as np
 from scipy.stats import norm
+from collections import deque
 
 class RFIDTag:
     def __init__(self, epc: str, tag_id: int):
@@ -16,7 +17,7 @@ class RFIDTag:
         self.read_count = 0
         self.total_read_time = 0
         self.avg_read_time = 0
-        self.read_times = []
+        self.read_times = deque(maxlen=100)  # Keep last 100 read times
         self.var_read_time = 0
         self.visibility_prob = 0.5  # Initial probability of being visible
         
@@ -27,23 +28,34 @@ class RFIDTag:
         self.covered_var = 7.38
         self.transition_rate = 0.1  # Probability of transitioning between states
 
-    def update_visibility(self, current_time):
+    def update_visibility(self, current_time, num_samples=10):
         elapsed_time = current_time - self.last_read_time
+        self.read_times.append(elapsed_time)
         
-        # Transition model
-        self.visibility_prob = 0.5 + (self.visibility_prob - 0.5) * (1 - self.transition_rate)
+        visibility_samples = []
+        for _ in range(num_samples):
+            # Sample an elapsed time from recent history
+            sampled_time = np.random.choice(self.read_times)
+            
+            # Transition model
+            v_prob = 0.5 + (self.visibility_prob - 0.5) * (1 - self.transition_rate)
+            
+            # Observation model
+            p_visible = norm.pdf(sampled_time, self.visible_mean, np.sqrt(self.visible_var))
+            p_covered = norm.pdf(sampled_time, self.covered_mean, np.sqrt(self.covered_var))
+            
+            # Bayes update
+            likelihood_visible = p_visible * v_prob
+            likelihood_covered = p_covered * (1 - v_prob)
+            total_likelihood = likelihood_visible + likelihood_covered
+            
+            if total_likelihood > 0:
+                v_prob = likelihood_visible / total_likelihood
+            
+            visibility_samples.append(v_prob)
         
-        # Observation model
-        p_visible = norm.pdf(elapsed_time, self.visible_mean, np.sqrt(self.visible_var))
-        p_covered = norm.pdf(elapsed_time, self.covered_mean, np.sqrt(self.covered_var))
-        
-        # Bayes update
-        likelihood_visible = p_visible * self.visibility_prob
-        likelihood_covered = p_covered * (1 - self.visibility_prob)
-        total_likelihood = likelihood_visible + likelihood_covered
-        
-        if total_likelihood > 0:
-            self.visibility_prob = likelihood_visible / total_likelihood
+        # Update visibility probability with the mean of samples
+        self.visibility_prob = np.mean(visibility_samples)
         
         # Decay the probability towards 0.5 for long periods without reads
         decay_factor = np.exp(-elapsed_time / 10)  # Adjust the 10 to control decay rate
@@ -76,7 +88,7 @@ class RFIDTracker:
             tag.read_times.append(elapsed_time)
             tag.avg_read_time = tag.total_read_time / tag.read_count
             if len(tag.read_times) > 1:
-                tag.var_read_time = np.var(tag.read_times)
+                tag.var_read_time = np.var(list(tag.read_times))
         elif len(self.tags) < self.max_tags:
             tag = RFIDTag(epc, self.next_id)
             self.tags[epc] = tag
@@ -126,6 +138,7 @@ class RFIDTracker:
     def close(self) -> None:
         """Close the serial connection."""
         self.serial.close()
+
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
