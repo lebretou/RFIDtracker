@@ -1,8 +1,10 @@
 import sys
 import time
+from collections import deque
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PyQt5.QtGui import QPainter, QColor, QFont
 from PyQt5.QtCore import Qt, QTimer
+import pyqtgraph as pg
 from rfid_tracker import RFIDTracker  # Import your existing RFIDTracker class
 
 class TagWidget(QWidget):
@@ -10,11 +12,17 @@ class TagWidget(QWidget):
         super().__init__()
         self.tag_data = tag_data
         self.color = Qt.yellow  # Default color
+        self.visibility_history = deque(maxlen=5)  # Store 5 samples for color averaging
+        self.graph_data = deque(maxlen=100)  # Store 100 samples for graphing
+        self.time_data = deque(maxlen=100)  # Corresponding time data
+        self.start_time = time.time()
         self.initUI()
 
     def initUI(self):
-        layout = QVBoxLayout()
+        layout = QHBoxLayout()  # Changed to horizontal layout
         
+        # Left side: info labels
+        info_layout = QVBoxLayout()
         fields = [
             ('ID', 'id'),
             ('EPC', 'epc'),
@@ -30,7 +38,19 @@ class TagWidget(QWidget):
         self.labels = {}
         for label, key in fields:
             self.labels[key] = QLabel(f"{label}: {self.tag_data.get(key, 'N/A')}")
-            layout.addWidget(self.labels[key])
+            info_layout.addWidget(self.labels[key])
+        
+        layout.addLayout(info_layout)
+        
+        # Right side: graph
+        self.graph_widget = pg.PlotWidget()
+        self.graph_widget.setBackground('w')
+        self.graph_widget.setYRange(0, 1)
+        self.graph_widget.setTitle("Visibility Probability Over Time")
+        self.graph_widget.setLabel('left', 'Probability')
+        self.graph_widget.setLabel('bottom', 'Time (s)')
+        self.graph_curve = self.graph_widget.plot(pen=pg.mkPen(color='b', width=2))
+        layout.addWidget(self.graph_widget)
         
         self.setLayout(layout)
 
@@ -38,11 +58,22 @@ class TagWidget(QWidget):
         self.tag_data = tag_data
         for key, label in self.labels.items():
             label.setText(f"{key.replace('_', ' ').title()}: {self.tag_data.get(key, 'N/A')}")
+        
+        # Update visibility history and graph data
+        prob = float(self.tag_data['visibility_prob'])
+        self.visibility_history.append(prob)
+        current_time = time.time() - self.start_time
+        self.graph_data.append(prob)
+        self.time_data.append(current_time)
+        
+        # Update graph
+        self.graph_curve.setData(x=list(self.time_data), y=list(self.graph_data))
 
     def update_color(self):
-        visibility_prob = float(self.tag_data['visibility_prob'])
-        self.color = QColor(Qt.green) if visibility_prob > 0.5 else QColor(Qt.red)
-        self.update()
+        if len(self.visibility_history) > 0:
+            avg_visibility = sum(self.visibility_history) / len(self.visibility_history)
+            self.color = QColor(Qt.green) if avg_visibility > 0.5 else QColor(Qt.red)
+            self.update()
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -58,7 +89,7 @@ class RFIDGui(QMainWindow):
 
     def initUI(self):
         self.setWindowTitle('RFID Tag Tracker')
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1200, 800)  # Increased window size
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -73,7 +104,7 @@ class RFIDGui(QMainWindow):
         # Set up a timer to update the visibility color less frequently
         self.color_timer = QTimer(self)
         self.color_timer.timeout.connect(self.updateColors)
-        self.color_timer.start(300)  # Update every 100 ms for visibility color
+        self.color_timer.start(300)  # Update every 300 ms for visibility color
 
     def updateData(self):
         self.tracker.read_and_update()
