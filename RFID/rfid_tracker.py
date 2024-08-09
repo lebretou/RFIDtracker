@@ -28,6 +28,13 @@ class RFIDTag:
         self.covered_var = 7.38
         self.transition_rate = 0.1  # Probability of transitioning between states
 
+        # Event detection parameters
+        self.touch_detected = False
+        self.long_press_detected = False
+        self.prob_history = deque(maxlen=50)  # Keep last 50 probability values
+        self.time_history = deque(maxlen=50)  # Keep corresponding timestamps
+        self.touch_cooldown = 0  # Cooldown timer for touch events
+
     def update_visibility(self, current_time, num_samples=10):
         elapsed_time = current_time - self.last_read_time
         self.read_times.append(elapsed_time)
@@ -60,6 +67,13 @@ class RFIDTag:
         # Decay the probability towards 0.5 for long periods without reads
         decay_factor = np.exp(-elapsed_time / 10)  # Adjust the 10 to control decay rate
         self.visibility_prob = 0.5 + (self.visibility_prob - 0.5) * decay_factor
+
+        # Update probability history
+        self.prob_history.append(self.visibility_prob)
+        self.time_history.append(current_time)
+
+
+    
 
 class RFIDTracker:
     def __init__(self, port: str, baud_rate: int, max_tags: int):
@@ -102,7 +116,7 @@ class RFIDTracker:
         tag.frequency = freq
 
     def update_all_tags(self, current_time):
-        """Update visibility probabilities for all tags."""
+        """Update visibility probabilities and detect events for all tags."""
         for tag in self.tags.values():
             tag.update_visibility(current_time)
 
@@ -127,7 +141,9 @@ class RFIDTracker:
                 "read_count": tag.read_count,
                 "avg_read_time": tag.avg_read_time,
                 "var_read_time": tag.var_read_time,
-                "visibility_prob": tag.visibility_prob
+                "visibility_prob": tag.visibility_prob,
+                "touch_detected": tag.touch_detected,
+                "long_press_detected": tag.long_press_detected
             }
         return None
 
