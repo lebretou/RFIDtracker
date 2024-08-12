@@ -6,10 +6,16 @@ const ANALYTICS_TASKS = [
   { id: "cluster", name: "Cluster", widget: "button" },
 ];
 
-const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
+const AnalyticsToolBar = ({
+  selectedChart,
+  onSort,
+  yAxis,
+  buttonAssignments,
+  onAssignment,
+}) => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [error, setError] = useState(null);
-  const [buttonAssignments, setButtonAssignments] = useState({});
+  // const [buttonAssignments, setButtonAssignments] = useState({});
 
   const addTask = (task) => {
     if (!selectedTasks.find((t) => t.id === task.id)) {
@@ -20,9 +26,9 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
   const removeTask = (taskId) => {
     setSelectedTasks(selectedTasks.filter((task) => task.id !== taskId));
     // Remove any button assignments for this task
-    const newAssignments = { ...buttonAssignments };
-    delete newAssignments[taskId];
-    setButtonAssignments(newAssignments);
+    // const newAssignments = { ...buttonAssignments };
+    // delete newAssignments[taskId];
+    // setButtonAssignments(newAssignments);
   };
 
   const handleSort = (order) => {
@@ -34,14 +40,37 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
     }
   };
 
-  const handleDrop = (e, taskId) => {
+  const handleDrop = (e, taskId, buttonType) => {
     e.preventDefault();
     const buttonData = JSON.parse(e.dataTransfer.getData("text"));
-    setButtonAssignments({ ...buttonAssignments, [taskId]: buttonData });
+    // setButtonAssignments({
+    //   ...buttonAssignments,
+    //   [`${taskId}-${buttonType}`]: buttonData,
+    // });
+    onAssignment(taskId, buttonType, buttonData);
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
+  };
+
+  const renderButton = (taskId, buttonType, label, className, onClick) => {
+    const assignment = buttonAssignments[`${taskId}-${buttonType}`];
+    const style = assignment
+      ? { borderColor: assignment.color, borderWidth: 4 }
+      : {};
+
+    return (
+      <button
+        onClick={onClick}
+        onDrop={(e) => handleDrop(e, taskId, buttonType)}
+        onDragOver={handleDragOver}
+        className={`${className} border-2`}
+        style={style}
+      >
+        {label}
+      </button>
+    );
   };
 
   return (
@@ -63,12 +92,7 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
       </div>
       <div className="space-y-2">
         {selectedTasks.map((task) => (
-          <div
-            key={task.id}
-            className="flex flex-col bg-gray-100 p-2 rounded"
-            onDrop={(e) => handleDrop(e, task.id)}
-            onDragOver={handleDragOver}
-          >
+          <div key={task.id} className="flex flex-col bg-gray-100 p-2 rounded">
             <div className="flex items-center justify-between">
               <span>{task.name}</span>
               <button
@@ -78,31 +102,29 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
                 ×
               </button>
             </div>
-            {buttonAssignments[task.id] && (
-              <div className="mt-1 text-sm text-gray-600">
-                Assigned: {buttonAssignments[task.id].label}
-              </div>
-            )}
             {task.id === "sort" && (
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => handleSort(null)}
-                  className="bg-gray-200 text-gray-800 px-3 py-1 rounded hover:bg-gray-300 transition-colors"
-                >
-                  Unsorted
-                </button>
-                <button
-                  onClick={() => handleSort("asc")}
-                  className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition-colors"
-                >
-                  Asc
-                </button>
-                <button
-                  onClick={() => handleSort("desc")}
-                  className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors"
-                >
-                  Desc
-                </button>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {renderButton(
+                  task.id,
+                  "unsorted",
+                  "Unsorted",
+                  "bg-gray-200 text-gray-800 px-2 py-1 rounded hover:bg-gray-300 transition-colors",
+                  () => handleSort(null),
+                )}
+                {renderButton(
+                  task.id,
+                  "ascending",
+                  "Ascending",
+                  "bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition-colors",
+                  () => handleSort("asc"),
+                )}
+                {renderButton(
+                  task.id,
+                  "descending",
+                  "Descending",
+                  "bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition-colors",
+                  () => handleSort("desc"),
+                )}
               </div>
             )}
             {task.id === "filter" && (

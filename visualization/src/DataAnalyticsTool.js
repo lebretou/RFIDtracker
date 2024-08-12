@@ -15,6 +15,7 @@ const DataAnalyticsTool = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [sortOrder, setSortOrder] = useState(null);
+  const [buttonAssignments, setButtonAssignments] = useState({});
 
   const svgRef = useRef();
   const containerRef = useRef(null);
@@ -99,6 +100,17 @@ const DataAnalyticsTool = () => {
     e.dataTransfer.setData("text/plain", JSON.stringify(button));
   };
 
+  const handleResetAssignments = () => {
+    setButtonAssignments({});
+  };
+
+  const handleAssignment = (taskId, buttonType, buttonData) => {
+    setButtonAssignments((prev) => ({
+      ...prev,
+      [`${taskId}-${buttonType}`]: buttonData,
+    }));
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       <div className="w-1/5 p-4 bg-white shadow-md">
@@ -124,7 +136,10 @@ const DataAnalyticsTool = () => {
             </ul>
           )}
         </div>
-        <StickerInput onDragStart={handleDragStart} />
+        <StickerInput
+          onDragStart={handleDragStart}
+          onReset={handleResetAssignments}
+        />
       </div>
       <div className="w-1/5 p-4 flex flex-col">
         <div className="mb-6 bg-white p-4 rounded shadow-md">
@@ -170,6 +185,8 @@ const DataAnalyticsTool = () => {
           selectedChart={selectedChart}
           onSort={handleSort}
           yAxis={yAxis}
+          buttonAssignments={buttonAssignments}
+          onAssignment={handleAssignment}
         />
       </div>
       <div className="w-3/5 p-4 bg-white shadow-md">
