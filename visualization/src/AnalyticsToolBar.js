@@ -9,6 +9,7 @@ const ANALYTICS_TASKS = [
 const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [error, setError] = useState(null);
+  const [buttonAssignments, setButtonAssignments] = useState({});
 
   const addTask = (task) => {
     if (!selectedTasks.find((t) => t.id === task.id)) {
@@ -18,15 +19,29 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
 
   const removeTask = (taskId) => {
     setSelectedTasks(selectedTasks.filter((task) => task.id !== taskId));
+    // Remove any button assignments for this task
+    const newAssignments = { ...buttonAssignments };
+    delete newAssignments[taskId];
+    setButtonAssignments(newAssignments);
   };
 
   const handleSort = (order) => {
     if (selectedChart !== "bar") {
       setError("Current chart and interaction type not compatible");
-      setTimeout(() => setError(null), 3000); // Clear error after 3 seconds
+      setTimeout(() => setError(null), 3000);
     } else {
       onSort(yAxis, order);
     }
+  };
+
+  const handleDrop = (e, taskId) => {
+    e.preventDefault();
+    const buttonData = JSON.parse(e.dataTransfer.getData("text"));
+    setButtonAssignments({ ...buttonAssignments, [taskId]: buttonData });
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
   };
 
   return (
@@ -48,7 +63,12 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
       </div>
       <div className="space-y-2">
         {selectedTasks.map((task) => (
-          <div key={task.id} className="flex flex-col bg-gray-100 p-2 rounded">
+          <div
+            key={task.id}
+            className="flex flex-col bg-gray-100 p-2 rounded"
+            onDrop={(e) => handleDrop(e, task.id)}
+            onDragOver={handleDragOver}
+          >
             <div className="flex items-center justify-between">
               <span>{task.name}</span>
               <button
@@ -58,10 +78,15 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
                 ×
               </button>
             </div>
+            {buttonAssignments[task.id] && (
+              <div className="mt-1 text-sm text-gray-600">
+                Assigned: {buttonAssignments[task.id].label}
+              </div>
+            )}
             {task.id === "sort" && (
               <div className="mt-2 flex gap-2">
                 <button
-                  onClick={() => handleSort("unsorted")}
+                  onClick={() => handleSort(null)}
                   className="bg-gray-200 text-gray-800 px-3 py-1 rounded hover:bg-gray-300 transition-colors"
                 >
                   Unsorted

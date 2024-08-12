@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import * as d3 from "d3";
 import AnalyticsToolBar from "./AnalyticsToolBar";
 import Chart from "./Chart";
+import StickerInput from "./StickerInput";
 
 const DataAnalyticsTool = () => {
   const [originalData, setOriginalData] = useState(null);
@@ -94,6 +95,10 @@ const DataAnalyticsTool = () => {
     }
   };
 
+  const handleDragStart = (e, button) => {
+    e.dataTransfer.setData("text/plain", JSON.stringify(button));
+  };
+
   return (
     <div className="flex h-screen bg-gray-100">
       <div className="w-1/5 p-4 bg-white shadow-md">
@@ -119,6 +124,7 @@ const DataAnalyticsTool = () => {
             </ul>
           )}
         </div>
+        <StickerInput onDragStart={handleDragStart} />
       </div>
       <div className="w-1/5 p-4 flex flex-col">
         <div className="mb-6 bg-white p-4 rounded shadow-md">
