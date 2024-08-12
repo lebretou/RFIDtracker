@@ -1,79 +1,13 @@
 import serial
 import time
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple
 from prettytable import PrettyTable
 import os
 import numpy as np
 from scipy.stats import norm
 from collections import deque
+from rfid import RFIDTag
 
-class RFIDTag:
-    def __init__(self, epc: str, tag_id: int):
-        self.epc = epc
-        self.id = tag_id
-        self.last_read_time = time.time()
-        self.rssi = 0
-        self.frequency = 0
-        self.read_count = 0
-        self.total_read_time = 0
-        self.avg_read_time = 0
-        self.read_times = deque(maxlen=100)  # Keep last 100 read times
-        self.var_read_time = 0
-        self.visibility_prob = 0.5  # Initial probability of being visible
-        
-        # Bayesian filter parameters
-        self.visible_mean = 0.0956
-        self.visible_var = 0.0051
-        self.covered_mean = 0.62
-        self.covered_var = 7.38
-        self.transition_rate = 0.1  # Probability of transitioning between states
-
-        # Event detection parameters
-        self.touch_detected = False
-        self.long_press_detected = False
-        self.prob_history = deque(maxlen=50)  # Keep last 50 probability values
-        self.time_history = deque(maxlen=50)  # Keep corresponding timestamps
-        self.touch_cooldown = 0  # Cooldown timer for touch events
-
-    def update_visibility(self, current_time, num_samples=10):
-        elapsed_time = current_time - self.last_read_time
-        self.read_times.append(elapsed_time)
-        
-        visibility_samples = []
-        for _ in range(num_samples):
-            # Sample an elapsed time from recent history
-            sampled_time = np.random.choice(self.read_times)
-            
-            # Transition model
-            v_prob = 0.5 + (self.visibility_prob - 0.5) * (1 - self.transition_rate)
-            
-            # Observation model
-            p_visible = norm.pdf(sampled_time, self.visible_mean, np.sqrt(self.visible_var))
-            p_covered = norm.pdf(sampled_time, self.covered_mean, np.sqrt(self.covered_var))
-            
-            # Bayes update
-            likelihood_visible = p_visible * v_prob
-            likelihood_covered = p_covered * (1 - v_prob)
-            total_likelihood = likelihood_visible + likelihood_covered
-            
-            if total_likelihood > 0:
-                v_prob = likelihood_visible / total_likelihood
-            
-            visibility_samples.append(v_prob)
-        
-        # Update visibility probability with the mean of samples
-        self.visibility_prob = np.mean(visibility_samples)
-        
-        # Decay the probability towards 0.5 for long periods without reads
-        decay_factor = np.exp(-elapsed_time / 10)  # Adjust the 10 to control decay rate
-        self.visibility_prob = 0.5 + (self.visibility_prob - 0.5) * decay_factor
-
-        # Update probability history
-        self.prob_history.append(self.visibility_prob)
-        self.time_history.append(current_time)
-
-
-    
 
 class RFIDTracker:
     def __init__(self, port: str, baud_rate: int, max_tags: int):
@@ -104,18 +38,17 @@ class RFIDTracker:
             if len(tag.read_times) > 1:
                 tag.var_read_time = np.var(list(tag.read_times))
         elif len(self.tags) < self.max_tags:
-            tag = RFIDTag(epc, self.next_id)
+            tag = RFIDTag(epc, self.next_id, self.max_tags)
             self.tags[epc] = tag
             self.next_id += 1
         else:
-            # If we've reached max tags, don't add a new one
-            return
+            return # Ignore new tags if max limit reached
 
         tag.last_read_time = timestamp
         tag.rssi = rssi
         tag.frequency = freq
 
-    def update_all_tags(self, current_time):
+    def update_all_tags_visibility(self, current_time):
         """Update visibility probabilities and detect events for all tags."""
         for tag in self.tags.values():
             tag.update_visibility(current_time)
@@ -126,7 +59,7 @@ class RFIDTracker:
         tag_data = self.read_serial()
         if tag_data:
             self.update_tag(*tag_data)
-        self.update_all_tags(current_time)
+        self.update_all_tags_visibility(current_time)
 
     def get_tag_data(self, epc: str) -> Optional[Dict]:
         """Get data for a specific tag."""
@@ -142,8 +75,6 @@ class RFIDTracker:
                 "avg_read_time": tag.avg_read_time,
                 "var_read_time": tag.var_read_time,
                 "visibility_prob": tag.visibility_prob,
-                "touch_detected": tag.touch_detected,
-                "long_press_detected": tag.long_press_detected
             }
         return None
 
