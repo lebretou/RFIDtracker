@@ -20,12 +20,12 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
     setSelectedTasks(selectedTasks.filter((task) => task.id !== taskId));
   };
 
-  const handleSort = () => {
+  const handleSort = (order) => {
     if (selectedChart !== "bar") {
       setError("Current chart and interaction type not compatible");
       setTimeout(() => setError(null), 3000); // Clear error after 3 seconds
     } else {
-      onSort(yAxis);
+      onSort(yAxis, order);
     }
   };
 
@@ -48,32 +48,45 @@ const AnalyticsToolBar = ({ selectedChart, onSort, yAxis }) => {
       </div>
       <div className="space-y-2">
         {selectedTasks.map((task) => (
-          <div
-            key={task.id}
-            className="flex items-center justify-between bg-gray-100 p-2 rounded"
-          >
-            <span>{task.name}</span>
-            {task.id === "sort" && (
+          <div key={task.id} className="flex flex-col bg-gray-100 p-2 rounded">
+            <div className="flex items-center justify-between">
+              <span>{task.name}</span>
               <button
-                className="bg-green-500 text-white px-2 py-1 rounded"
-                onClick={handleSort}
+                onClick={() => removeTask(task.id)}
+                className="ml-2 text-red-500 hover:text-red-700"
               >
-                Apply Sort
+                ×
               </button>
+            </div>
+            {task.id === "sort" && (
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => handleSort("unsorted")}
+                  className="bg-gray-200 text-gray-800 px-3 py-1 rounded hover:bg-gray-300 transition-colors"
+                >
+                  Unsorted
+                </button>
+                <button
+                  onClick={() => handleSort("asc")}
+                  className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 transition-colors"
+                >
+                  Asc
+                </button>
+                <button
+                  onClick={() => handleSort("desc")}
+                  className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition-colors"
+                >
+                  Desc
+                </button>
+              </div>
             )}
-            {task.widget === "selector" && (
-              <select className="border rounded px-2 py-1">
+            {task.id === "filter" && (
+              <select className="mt-2 border rounded px-2 py-1">
                 <option>Option 1</option>
                 <option>Option 2</option>
                 <option>Option 3</option>
               </select>
             )}
-            <button
-              onClick={() => removeTask(task.id)}
-              className="ml-2 text-red-500 hover:text-red-700"
-            >
-              ×
-            </button>
           </div>
         ))}
       </div>

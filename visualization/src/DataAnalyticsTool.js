@@ -4,6 +4,7 @@ import AnalyticsToolBar from "./AnalyticsToolBar";
 import Chart from "./Chart";
 
 const DataAnalyticsTool = () => {
+  const [originalData, setOriginalData] = useState(null);
   const [data, setData] = useState(null);
   const [selectedChart, setSelectedChart] = useState("bar");
   const [xAxis, setXAxis] = useState("");
@@ -43,6 +44,7 @@ const DataAnalyticsTool = () => {
         }
 
         setData(jsonData);
+        setOriginalData(jsonData);
         setIsLoading(false);
 
         // Set initial x and y axes
@@ -74,20 +76,22 @@ const DataAnalyticsTool = () => {
     return () => window.removeEventListener("resize", updateDimensions);
   }, []);
 
-  const handleSort = (column) => {
-    const newSortOrder = sortOrder === "asc" ? "desc" : "asc";
-    setSortOrder(newSortOrder);
+  const handleSort = (column, order) => {
+    setSortOrder(order);
 
-    const sortedData = [...data].sort((a, b) => {
-      if (newSortOrder === "asc") {
-        return a[column] - b[column];
-      } else {
-        return b[column] - a[column];
-      }
-    });
-
-    setData(sortedData);
-    // createChart(); // This call ensures that the chart updates after sorting
+    if (order === "unsorted") {
+      // Reset to original order
+      setData([...originalData]);
+    } else {
+      const sortedData = [...originalData].sort((a, b) => {
+        if (order === "asc") {
+          return a[column] - b[column];
+        } else {
+          return b[column] - a[column];
+        }
+      });
+      setData(sortedData);
+    }
   };
 
   return (
