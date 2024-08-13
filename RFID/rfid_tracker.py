@@ -13,7 +13,13 @@ import json
 
 class RFIDTracker:
     def __init__(self, port: str, baud_rate: int, max_tags: int):
-        self.serial = serial.Serial(port, baud_rate, timeout=1)
+        try:
+            self.serial = serial.Serial(port, baud_rate, timeout=1)
+        except serial.SerialException as e:
+            print(f"Error opening serial port: {e}")
+            os._exit(1)
+
+
         self.max_tags = max_tags
         self.tags: Dict[str, RFIDTag] = {}
         self.next_id = 1

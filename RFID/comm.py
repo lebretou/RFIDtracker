@@ -9,6 +9,10 @@ tracker = RFIDTracker("/dev/tty.usbmodem21301", 115200, max_tags=3)
 async def handler(websocket, path):
     """Handle incoming WebSocket connections and send RFID tag data."""
     print(f"Client connected: {path}")
+
+    if not tracker.serial.is_open:
+                tracker.serial.open()
+
     try:
         while True:
             # Read and update RFID tags
