@@ -83,6 +83,8 @@ class RFIDTracker:
                 "avg_read_time": tag.avg_read_time,
                 "var_read_time": tag.var_read_time,
                 "visibility_prob": tag.visibility_prob,
+                "average_prob": tag.avg_last_10_prob,
+                "tag_state": tag.tag_state
             }
         return None
 
@@ -100,7 +102,9 @@ def clear_screen():
 
 def print_table(tags: Dict[str, Dict]):
     table = PrettyTable()
-    table.field_names = ["ID", "EPC", "Last Read Time", "RSSI", "Frequency", "Read Count", "Avg Read Time", "Var Read Time", "Visibility Prob"]
+    table.field_names = ["ID", "EPC", "Last Read Time", "RSSI", "Frequency", "Read Count", "Visibility Prob",
+                         "Average Prob",
+                         "Tag State"]
     for tag in tags.values():
         table.add_row([
             tag['id'],
@@ -109,9 +113,11 @@ def print_table(tags: Dict[str, Dict]):
             tag['rssi'],
             tag['frequency'],
             tag['read_count'],
-            f"{tag['avg_read_time']:.4f}s",
-            f"{tag['var_read_time']:.6f}s²",
-            f"{tag['visibility_prob']:.4f}"
+            # f"{tag['avg_read_time']:.4f}s",
+            # f"{tag['var_read_time']:.6f}s²",
+            f"{tag['visibility_prob']:.4f}",
+            f"{tag['average_prob']:.4f}",
+            tag['tag_state']
         ])
     clear_screen()
     print(table)
@@ -121,8 +127,8 @@ if __name__ == "__main__":
     try:
         while True:
             tracker.read_and_update()
-            # print_table(tracker.get_all_tags())
-            print(tracker.get_all_tags())
+            print_table(tracker.get_all_tags())
+            # print(tracker.get_all_tags())
             # time.sleep(0.1)  # Short delay between reads
     except KeyboardInterrupt:
         print("\nInterrupted by user")

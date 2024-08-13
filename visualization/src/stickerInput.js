@@ -1,19 +1,15 @@
-import React from "react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 const StickerInput = ({ onDragStart, onReset }) => {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState({});
 
   useEffect(() => {
-    // Assuming you're using WebSocket
     const ws = new WebSocket("ws://localhost:8765");
-
     ws.onopen = () => {
       console.log("Connected to server");
     };
-
     ws.onmessage = (event) => {
-      console.log("Received message:", event.data); // Debug log
+      console.log("Received message:", event.data);
       try {
         const receivedData = JSON.parse(event.data);
         setData(receivedData);
@@ -21,29 +17,36 @@ const StickerInput = ({ onDragStart, onReset }) => {
         console.error("Error parsing WebSocket message:", error);
       }
     };
-
     return () => ws.close();
   }, []);
 
-  const buttons = [
-    { id: "button1", label: "Sticker 1", color: "orange" },
-    { id: "button2", label: "Sticker 2", color: "lightblue" },
-    { id: "button3", label: "Sticker 3", color: "magenta" },
-  ];
+  const getButtonColor = (id) => {
+    const colors = ["orange", "lightblue", "magenta", "lime", "cyan", "yellow"];
+    return colors[id % colors.length];
+  };
 
   return (
     <div className="mt-6">
       <h2 className="text-xl font-bold mb-3 text-gray-800">Stickers</h2>
       <div className="space-y-2">
-        {buttons.map((button) => (
+        {Object.entries(data).map(([epc, stickerData]) => (
           <div
-            key={button.id}
+            key={epc}
             draggable
-            onDragStart={(e) => onDragStart(e, button)}
-            className={`p-2 rounded cursor-move transition-colors text-white`}
-            style={{ backgroundColor: button.color }}
+            onDragStart={(e) =>
+              onDragStart(e, {
+                id: stickerData.id,
+                label: `Sticker ${stickerData.id}`,
+                color: getButtonColor(stickerData.id),
+              })
+            }
+            className={`p-2 rounded cursor-move transition-colors text-white flex justify-between items-center`}
+            style={{ backgroundColor: getButtonColor(stickerData.id) }}
           >
-            {button.label}
+            <span>{`Sticker ${stickerData.id}`}</span>
+            <span
+              className={`w-3 h-3 rounded-full ${stickerData.visibility_prob > 0.5 ? "bg-green-500" : "bg-red-500"}`}
+            ></span>
           </div>
         ))}
         <button
