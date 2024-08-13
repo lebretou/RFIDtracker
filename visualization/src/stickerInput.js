@@ -1,6 +1,30 @@
 import React from "react";
+import { useEffect, useState } from "react";
 
 const StickerInput = ({ onDragStart, onReset }) => {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    // Assuming you're using WebSocket
+    const ws = new WebSocket("ws://localhost:8765");
+
+    ws.onopen = () => {
+      console.log("Connected to server");
+    };
+
+    ws.onmessage = (event) => {
+      console.log("Received message:", event.data); // Debug log
+      try {
+        const receivedData = JSON.parse(event.data);
+        setData(receivedData);
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
+      }
+    };
+
+    return () => ws.close();
+  }, []);
+
   const buttons = [
     { id: "button1", label: "Sticker 1", color: "orange" },
     { id: "button2", label: "Sticker 2", color: "lightblue" },

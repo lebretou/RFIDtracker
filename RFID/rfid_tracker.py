@@ -7,7 +7,9 @@ import numpy as np
 from scipy.stats import norm
 from collections import deque
 from rfid import RFIDTag
-
+import asyncio
+import websockets
+import json
 
 class RFIDTracker:
     def __init__(self, port: str, baud_rate: int, max_tags: int):
@@ -108,15 +110,34 @@ def print_table(tags: Dict[str, Dict]):
     clear_screen()
     print(table)
 
-# Example usage
 if __name__ == "__main__":
     tracker = RFIDTracker("/dev/tty.usbmodem21301", 115200, max_tags=3)  # Set to 3 tags
     try:
         while True:
             tracker.read_and_update()
-            print_table(tracker.get_all_tags())
+            # print_table(tracker.get_all_tags())
+            print(tracker.get_all_tags())
             # time.sleep(0.1)  # Short delay between reads
     except KeyboardInterrupt:
         print("\nInterrupted by user")
     finally:
         tracker.close()
+
+# if __name__ == "__main__":
+#     tracker = RFIDTracker("/dev/tty.usbmodem21301", 115200, max_tags=3)  # Set to 3 tags
+#     try:
+#         async def send_tags():
+#             while True:
+#                 tracker.read_and_update()
+#                 tags = tracker.get_all_tags()
+#                 print(tags)
+#                 async with websockets.connect("ws://localhost:3000") as websocket:
+#                     await websocket.send(json.dumps(tags))
+#                 # await asyncio.sleep(0.1)
+#                 print("hello")
+#         asyncio.get_event_loop().run_until_complete(send_tags())
+#         asyncio.get_event_loop().run_forever()
+#     except KeyboardInterrupt:
+#         print("\nInterrupted by user")
+#     finally:
+#         tracker.close()

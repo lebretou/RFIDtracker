@@ -81,7 +81,7 @@ const DataAnalyticsTool = () => {
   const handleSort = (column, order) => {
     setSortOrder(order);
 
-    if (order === "unsorted") {
+    if (!order) {
       // Reset to original order
       setData([...originalData]);
     } else {
