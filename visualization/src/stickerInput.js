@@ -45,7 +45,7 @@ const StickerInput = ({ onDragStart, onReset }) => {
           >
             <span>{`Sticker ${stickerData.id}`}</span>
             <span
-              className={`w-3 h-3 rounded-full ${stickerData.visibility_prob > 0.5 ? "bg-green-500" : "bg-red-500"}`}
+              className={`w-3 h-3 rounded-full ${stickerData.tag_state === "Not Covered" ? "bg-green-500" : "bg-red-500"}`}
             ></span>
           </div>
         ))}

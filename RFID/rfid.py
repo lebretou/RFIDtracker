@@ -17,7 +17,8 @@ class RFIDTag:
         self.var_read_time = 0
         self.visibility_prob = 0.5  # Initial probability of being visible
         # Bayesian filter parameters
-        self.visible_mean = 0.0956
+        # self.visible_mean = 0.0956
+        self.visible_mean = 0.15
         self.visible_var = 0.0051
         self.covered_mean = 0.62
         self.covered_var = 7.38
@@ -29,7 +30,7 @@ class RFIDTag:
         self.avg_last_10_prob = 0.5  # Initial average of last 10 probabilities
         self.tag_state = "Not Covered"  # Initial state
 
-    def update_visibility(self, current_time, num_samples=10):
+    def update_visibility(self, current_time, num_samples=5):
         elapsed_time = current_time - self.last_read_time
         self.read_times.append(elapsed_time)
         visibility_samples = []
@@ -70,7 +71,7 @@ class RFIDTag:
             self.avg_last_10_prob = np.mean(self.prob_history)
 
     def update_tag_state(self):
-        if self.avg_last_10_prob > 0.5:
+        if self.avg_last_10_prob > 0.4:
             self.tag_state = "Not Covered"
         else:
             self.tag_state = "Covered"

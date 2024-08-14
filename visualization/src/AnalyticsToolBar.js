@@ -15,7 +15,8 @@ const AnalyticsToolBar = ({
 }) => {
   const [selectedTasks, setSelectedTasks] = useState([]);
   const [error, setError] = useState(null);
-  // const [buttonAssignments, setButtonAssignments] = useState({});
+  const [longPressTimeout, setLongPressTimeout] = useState(null);
+  const [isLongPressing, setIsLongPressing] = useState(false);
 
   const addTask = (task) => {
     if (!selectedTasks.find((t) => t.id === task.id)) {
@@ -25,19 +26,6 @@ const AnalyticsToolBar = ({
 
   const removeTask = (taskId) => {
     setSelectedTasks(selectedTasks.filter((task) => task.id !== taskId));
-    // Remove any button assignments for this task
-    // const newAssignments = { ...buttonAssignments };
-    // delete newAssignments[taskId];
-    // setButtonAssignments(newAssignments);
-  };
-
-  const handleSort = (order) => {
-    if (selectedChart !== "bar") {
-      setError("Current chart and interaction type not compatible");
-      setTimeout(() => setError(null), 3000);
-    } else {
-      onSort(yAxis, order);
-    }
   };
 
   const handleDrop = (e, taskId, buttonType) => {
@@ -54,7 +42,37 @@ const AnalyticsToolBar = ({
     e.preventDefault();
   };
 
-  const renderButton = (taskId, buttonType, label, className, onClick) => {
+  const handleLongPress = (order) => {
+    setIsLongPressing(true);
+    setLongPressTimeout(
+      setTimeout(() => {
+        if (selectedChart !== "bar") {
+          setError("Current chart and interaction type not compatible");
+          setTimeout(() => setError(null), 3000);
+        } else {
+          onSort(yAxis, order);
+        }
+      }, 300), // 500ms delay before triggering sort
+    );
+  };
+
+  // const cancelLongPress = () => {
+  //   clearTimeout(longPressTimeout);
+  // };
+  const cancelLongPress = () => {
+    clearTimeout(longPressTimeout);
+    if (isLongPressing) {
+      // Add a small delay before resetting to the original order
+      setTimeout(() => {
+        onSort(yAxis, null);
+        setIsLongPressing(false);
+      }, 100); // 300ms delay before reverting to the original order
+    } else {
+      setIsLongPressing(false);
+    }
+  };
+
+  const renderButton = (taskId, buttonType, label, className, order) => {
     const assignment = buttonAssignments[`${taskId}-${buttonType}`];
     const style = assignment
       ? { borderColor: assignment.color, borderWidth: 4 }
@@ -62,7 +80,9 @@ const AnalyticsToolBar = ({
 
     return (
       <button
-        onClick={onClick}
+        onMouseDown={() => handleLongPress(order)}
+        onMouseUp={cancelLongPress}
+        onMouseLeave={cancelLongPress}
         onDrop={(e) => handleDrop(e, taskId, buttonType)}
         onDragOver={handleDragOver}
         className={`${className} border-2`}
@@ -106,33 +126,19 @@ const AnalyticsToolBar = ({
               <div className="mt-2 flex flex-wrap gap-2">
                 {renderButton(
                   task.id,
-                  "unsorted",
-                  "Unsorted",
-                  "bg-gray-200 text-gray-800 px-2 py-1 rounded hover:bg-gray-300 transition-colors",
-                  () => handleSort(null),
-                )}
-                {renderButton(
-                  task.id,
                   "ascending",
                   "Ascending",
                   "bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition-colors",
-                  () => handleSort("asc"),
+                  "asc",
                 )}
                 {renderButton(
                   task.id,
                   "descending",
                   "Descending",
                   "bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600 transition-colors",
-                  () => handleSort("desc"),
+                  "desc",
                 )}
               </div>
-            )}
-            {task.id === "filter" && (
-              <select className="mt-2 border rounded px-2 py-1">
-                <option>Option 1</option>
-                <option>Option 2</option>
-                <option>Option 3</option>
-              </select>
             )}
           </div>
         ))}
@@ -142,3 +148,17 @@ const AnalyticsToolBar = ({
 };
 
 export default AnalyticsToolBar;
+
+// const handleDrop = (e, taskId, buttonType) => {
+//   e.preventDefault();
+//   const buttonData = JSON.parse(e.dataTransfer.getData("text"));
+//   // setButtonAssignments({
+//   //   ...buttonAssignments,
+//   //   [`${taskId}-${buttonType}`]: buttonData,
+//   // });
+//   onAssignment(taskId, buttonType, buttonData);
+// };
+
+// const handleDragOver = (e) => {
+//   e.preventDefault();
+// };

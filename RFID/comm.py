@@ -23,7 +23,7 @@ async def handler(websocket, path):
             # Send the tags to the connected client
             await websocket.send(json.dumps(tags))
 
-            await asyncio.sleep(0.1)  # Small delay to prevent overwhelming the system
+            # await asyncio.sleep(0.1)  # Small delay to prevent overwhelming the system
 
     except websockets.exceptions.ConnectionClosed:
         print("Client disconnected")
